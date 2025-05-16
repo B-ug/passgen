@@ -1,0 +1,9 @@
+[project]
+name = "passgen"
+version = "0.1.0"
+description = "安全的随机密码生成器，使用PyQt6提供用户界面"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyqt6>=6.9.0",
+]
