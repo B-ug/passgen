@@ -26,14 +26,8 @@
 1. 克隆项目仓库：
 
 ```bash
-git clone <项目仓库URL>
+git clone https://github.com/B-ug/passgen.git
 cd passgen
-```
-
-2. 安装依赖：
-
-```bash
-uv add PyQt6
 ```
 
 ## 使用方法
@@ -41,7 +35,7 @@ uv add PyQt6
 运行程序：
 
 ```bash
-python main.py
+uv run main.py
 ```
 
 ### 使用界面
