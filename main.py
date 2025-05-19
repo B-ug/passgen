@@ -21,7 +21,8 @@ class PasswordGenerator:
         self.special_chars = "!@#$%^&*()-_=+[{]}\\|;:'\",<.>/?"
         
     def generate_password(self, length=12, use_lowercase=True, use_uppercase=True,
-                         use_digits=True, use_special=True, custom_special=None):
+                         use_digits=True, use_special=True, custom_special=None,
+                         min_special_chars=1):
         """
         生成随机密码
         
@@ -32,7 +33,8 @@ class PasswordGenerator:
             use_digits: 是否使用数字
             use_special: 是否使用特殊字符
             custom_special: 自定义特殊字符集
-        
+            min_special_chars: 最少包含的特殊字符数量
+            
         返回:
             生成的随机密码
         """
@@ -54,13 +56,17 @@ class PasswordGenerator:
         if not chars:
             raise ValueError("字符集为空，无法生成密码")
             
+        # 验证最少特殊字符数量不超过密码长度
+        if use_special and min_special_chars > length:
+            raise ValueError(f"最少特殊字符数量({min_special_chars})不能超过密码长度({length})")
+            
         # 使用cryptographically strong RNG生成密码
         password = ''.join(secrets.choice(chars) for _ in range(length))
         
         # 确保密码满足复杂性要求
         has_requirements = self._password_meets_requirements(
             password, use_lowercase, use_uppercase, use_digits, 
-            use_special, custom_special
+            use_special, custom_special, min_special_chars
         )
         
         # 如果不满足要求，重新生成
@@ -68,13 +74,13 @@ class PasswordGenerator:
             password = ''.join(secrets.choice(chars) for _ in range(length))
             has_requirements = self._password_meets_requirements(
                 password, use_lowercase, use_uppercase, use_digits, 
-                use_special, custom_special
+                use_special, custom_special, min_special_chars
             )
             
         return password
     
     def _password_meets_requirements(self, password, use_lowercase, use_uppercase,
-                                   use_digits, use_special, custom_special):
+                                   use_digits, use_special, custom_special, min_special_chars=1):
         """
         检查密码是否满足要求
         """
@@ -87,7 +93,10 @@ class PasswordGenerator:
             return False
         if use_special:
             special_set = custom_special if custom_special else self.special_chars
-            if not any(c in special_set for c in password):
+            # 计算特殊字符数量
+            special_count = sum(1 for c in password if c in special_set)
+            # 如果特殊字符数量少于要求的最少数量，则返回False
+            if special_count < min_special_chars:
                 return False
                 
         return True
@@ -115,6 +124,7 @@ class PasswordGeneratorApp(QMainWindow):
         self._create_length_settings()
         self._create_character_settings()
         self._create_special_chars_settings()
+        self._create_min_special_settings()
         self._create_buttons()
         
         # 初始生成一个密码
@@ -155,6 +165,7 @@ class PasswordGeneratorApp(QMainWindow):
         # 连接滑块和数字选择框
         self.length_slider.valueChanged.connect(self.length_spinbox.setValue)
         self.length_spinbox.valueChanged.connect(self.length_slider.setValue)
+        self.length_spinbox.valueChanged.connect(self._update_min_special_max)
         
         slider_layout.addWidget(self.length_slider)
         slider_layout.addWidget(self.length_spinbox)
@@ -180,6 +191,7 @@ class PasswordGeneratorApp(QMainWindow):
         
         self.use_special = QCheckBox("特殊字符")
         self.use_special.setChecked(True)
+        self.use_special.stateChanged.connect(self._update_min_special_enabled)
         
         char_layout.addWidget(self.use_lowercase)
         char_layout.addWidget(self.use_uppercase)
@@ -203,6 +215,36 @@ class PasswordGeneratorApp(QMainWindow):
         special_group.setLayout(special_layout)
         
         self.main_layout.addWidget(special_group)
+        
+    def _create_min_special_settings(self):
+        """创建最少特殊字符数量设置区域"""
+        min_special_group = QGroupBox("最少特殊字符数量")
+        min_special_layout = QHBoxLayout()
+        
+        self.min_special_spinbox = QSpinBox()
+        self.min_special_spinbox.setMinimum(1)
+        self.min_special_spinbox.setMaximum(self.length_spinbox.value())
+        self.min_special_spinbox.setValue(1)
+        
+        min_special_layout.addWidget(QLabel("最少包含:"))
+        min_special_layout.addWidget(self.min_special_spinbox)
+        min_special_layout.addWidget(QLabel("个特殊字符"))
+        min_special_layout.addStretch()
+        
+        min_special_group.setLayout(min_special_layout)
+        
+        self.main_layout.addWidget(min_special_group)
+        
+    def _update_min_special_max(self):
+        """更新最少特殊字符数量的最大值"""
+        self.min_special_spinbox.setMaximum(self.length_spinbox.value())
+        # 如果当前值大于新的最大值，则调整当前值
+        if self.min_special_spinbox.value() > self.length_spinbox.value():
+            self.min_special_spinbox.setValue(self.length_spinbox.value())
+            
+    def _update_min_special_enabled(self):
+        """根据是否使用特殊字符来启用或禁用最少特殊字符数量设置"""
+        self.min_special_spinbox.setEnabled(self.use_special.isChecked())
         
     def _create_buttons(self):
         """创建按钮区域"""
@@ -242,7 +284,8 @@ class PasswordGeneratorApp(QMainWindow):
                 use_uppercase=self.use_uppercase.isChecked(),
                 use_digits=self.use_digits.isChecked(),
                 use_special=self.use_special.isChecked(),
-                custom_special=self.special_chars_edit.text() if self.use_special.isChecked() else None
+                custom_special=self.special_chars_edit.text() if self.use_special.isChecked() else None,
+                min_special_chars=self.min_special_spinbox.value() if self.use_special.isChecked() else 0
             )
             
             self.password_display.setText(password)
